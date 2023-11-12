@@ -1,0 +1,10 @@
+*.vscode
+*.csv
+*.pt
+*.json
+*.pyc
+*.dat
+__pycache__/
+*.egg-info/
+figs/
+dataset_files/

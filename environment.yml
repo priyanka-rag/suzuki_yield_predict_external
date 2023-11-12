@@ -1,0 +1,29 @@
+name: suzuki_env
+channels:
+  - conda-forge
+dependencies:
+  - matplotlib=3.7.3
+  - openbabel=3.1.1
+  - pip=23.2.1
+  - python=3.8.17
+  - numpy=1.24.4
+  - setuptools=68.1.2
+  - xtb=6.5.1
+  - xtb-python=22.1
+  - pip:
+    - babel==2.12.1
+    - chemprop==1.6.1
+    - fabric==3.2.2
+    - keras==2.13.1
+    - mpl-scatter-density==0.7
+    - pandas==2.0.3
+    - paramiko==3.3.1
+    - pybel==0.15.5
+    - pyyaml==6.0.1
+    - qcelemental==0.26.0
+    - rdkit==2023.3.3
+    - scikit-learn==1.3.0
+    - scipy==1.10.1
+    - torch==2.0.1
+    - tqdm==4.66.1
+    - xgboost==1.7.6

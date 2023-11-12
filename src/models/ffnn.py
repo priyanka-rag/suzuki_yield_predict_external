@@ -1,0 +1,152 @@
+import numpy as np
+import torch
+from torch.utils.data import Dataset, DataLoader
+
+class EarlyStopper:
+    def __init__(self, patience, tol):
+        self.patience = patience
+        self.tol = tol
+        self.counter = 0
+        self.min_val_loss = float('inf')
+
+    def early_stop(self, val_loss):
+        if val_loss < self.min_val_loss:
+            self.min_val_loss = val_loss
+            self.counter = 0
+        elif val_loss > (self.min_val_loss + self.tol):
+            self.counter += 1
+            if self.counter >= self.patience:
+                return True
+        return False
+    
+class SuzukiDataset(Dataset):
+    def __init__(self, X, y):
+        self.X = torch.Tensor(X)  
+        self.y = torch.Tensor(y)  
+        self.len=len(self.X)                 
+
+    def __getitem__(self, index):
+        return self.X[index], self.y[index]
+
+    def __len__(self):
+        return self.len
+    
+class FFNN(torch.nn.Module):
+    def __init__(self, task_type, params, random_seed, X_train, y_train, X_valid, y_valid, X_test, y_test):
+        super().__init__()
+        self.task_type = task_type
+
+        #data
+        self.in_features = X_train.shape[1]
+        if self.task_type == 'bin': self.out_features = 2
+        elif self.task_type == 'mul': self.out_features = 4
+        elif self.task_type == 'reg': self.out_features = 1
+        self.batch_size = 256
+        self.train_data = SuzukiDataset(X_train,y_train)
+        self.val_data = SuzukiDataset(X_valid,y_valid)
+        self.test_data = SuzukiDataset(X_test,y_test)
+        self.train_dataloader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=True) 
+        self.val_dataloader = DataLoader(self.val_data, batch_size=self.batch_size, shuffle=True) 
+        self.test_dataloader = DataLoader(self.test_data, batch_size=self.batch_size)
+
+        #hyperparameters
+        hidden_layer_sizes = params['hidden_layer_sizes']
+        self.learning_rate = params['learning_rate_init']
+        torch.manual_seed(random_seed)
+
+        #model
+        self.model = torch.nn.Sequential(torch.nn.Linear(self.in_features, hidden_layer_sizes[0]),
+                                         torch.nn.ReLU(),
+                                         torch.nn.Linear(hidden_layer_sizes[0], hidden_layer_sizes[1]),
+                                         torch.nn.ReLU(),
+                                         torch.nn.Linear(hidden_layer_sizes[1], hidden_layer_sizes[2]),
+                                         torch.nn.ReLU(),
+                                         torch.nn.Linear(hidden_layer_sizes[2], self.out_features))
+
+        #peripherals
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model.to(self.device)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', verbose=True, patience=3, factor=0.5)
+        
+    def forward(self, x):
+        x = self.model(x)
+        return x       
+   
+    def train(self):
+        epoch_loss = []
+        self.model.train() #set model to training mode 
+        
+        for batch in self.train_dataloader:    
+            X, y = batch
+            if self.task_type != 'reg': y = y.type(torch.LongTensor)
+            X = X.to(self.device)
+            y = y.to(self.device)
+            
+            #train model on each batch 
+            y_pred = self.model(X)
+            
+            if self.task_type == 'reg': loss = torch.nn.functional.mse_loss(y_pred.ravel(),y.ravel())
+            else: loss = torch.nn.functional.cross_entropy(y_pred,y)
+            epoch_loss.append(loss.item())
+            
+            # run backprop
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+        return np.array(epoch_loss).mean()
+
+    def validate(self):
+        val_loss = []
+        self.model.eval() #set model to evaluation mode 
+        with torch.no_grad():    
+            for batch in self.val_dataloader:
+                X, y = batch
+                if self.task_type != 'reg': y = y.type(torch.LongTensor)
+                X = X.to(self.device)
+                y = y.to(self.device)
+                
+                #validate model on each batch 
+                y_pred = self.model(X)
+
+                if self.task_type == 'reg': loss = torch.nn.functional.mse_loss(y_pred.ravel(),y.ravel())
+                else: loss = torch.nn.functional.cross_entropy(y_pred,y)
+                val_loss.append(loss.item())      
+        return np.array(val_loss).mean()
+    
+    def fit(self):
+        self.early_stopper = EarlyStopper(patience=10, tol=1e-4)
+        self.train_losses = []
+        self.val_losses = []
+
+        for epoch in range(200):
+            train_loss = self.train()
+            val_loss = self.validate()
+            self.scheduler.step(val_loss)
+
+            #record train and loss performance, check for early stopping
+            self.train_losses.append(train_loss)
+            self.val_losses.append(val_loss)
+            print(f"{epoch}     {train_loss}     {val_loss}")
+            if self.early_stopper.early_stop(val_loss):
+                print(f'Early stopping reached at epoch {epoch}')             
+                break
+    
+    def predict(self):
+        preds = []
+        with torch.no_grad():
+            self.model.eval()
+            for batch in self.test_dataloader:
+                X, y = batch
+
+                X = X.to(self.device)
+                y = y.to(self.device)
+
+                # evaluate your model here\
+                pred = self.model(X)
+                if self.task_type != 'reg': pred = torch.argmax(pred,dim=1)
+                preds.append(pred.tolist())
+
+        #flatten outputs from the various batches
+        y_pred = np.array([item for sublist in preds for item in sublist])
+        return y_pred
