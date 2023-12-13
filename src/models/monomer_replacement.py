@@ -40,5 +40,3 @@ def generate_library_predictions(mode):
         if task_type == 'reg': model.y_pred = model.y_pred*100 #unscale regression targets
         test_df_copy[f'{task_type}_Predicted_Yield'] = list(model.y_pred)
     return test_df_copy
-
-generate_library_predictions('design')
