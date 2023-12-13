@@ -33,6 +33,15 @@ def score_predictions(task_type,y_test,y_pred):
       res['RMSE'] = mean_squared_error(y_test, y_pred, squared=False)
    return res
 
+def gen_dummy_targets(df, task_type):
+     size = df.shape[0]
+     if task_type == 'bin': y_test = np.random.randint(0,2,size=(size,1))
+     elif task_type == 'mul': y_test = np.random.randint(0,4,size=(size,1))
+     elif task_type == 'reg': 
+        y_test = np.random.randint(0,100,size=(size,1))
+        y_test = y_test/100
+     return y_test
+
 class Model_Trainer():
    def __init__(self, model_type, split_type, task_type, feature_type, model_params, train_df, val_df, test_df):
       self.model_type = model_type
@@ -43,6 +52,7 @@ class Model_Trainer():
       self.val_df = val_df
       self.test_df = test_df
       self.model_params = model_params
+      self.has_test_targets = True
    
    def get_model_inputs(self):
       # read in everything
@@ -50,8 +60,9 @@ class Model_Trainer():
       self.y_train = get_yield_data(yield_train, self.task_type)
       try: #for the prospective studies, we don't have ground truth yields for the test set
          yield_test = self.test_df['Percent_Yield']
-      except:
-         self.y_test = None
+      except: #if the test set doesn't have target values (prospective!)
+         self.y_test = gen_dummy_targets(self.test_df, self.task_type)
+         self.has_test_targets = False
       else:
          self.y_test = get_yield_data(yield_test, self.task_type)
 
@@ -175,5 +186,5 @@ class Model_Trainer():
       self.initialize_model()
       self.train_model()
       self.model_predict()
-      if self.y_test is not None: 
+      if self.has_test_targets == True: 
          self.res = score_predictions(self.task_type, self.y_test, self.y_pred)

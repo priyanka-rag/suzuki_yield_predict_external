@@ -31,8 +31,14 @@ def generate_library_predictions(mode):
         print(task_type)
         # initialize model, train, and predict
         model_params = get_params(model_type, split_type, task_type, feature_type)
-        model = Model_Trainer(model_type, split_type, task_type, feature_type, model_params, train_df=retrospective_df, val_df=None, test_df=monomer_replacement_df)
+        if model_type == 'nn':
+            train_df, val_df = split_data(retrospective_df, split_type, 0.15, 0)
+            model = Model_Trainer(model_type, split_type, task_type, feature_type, model_params, train_df, val_df, test_df=monomer_replacement_df)
+        else:
+            model = Model_Trainer(model_type, split_type, task_type, feature_type, model_params, train_df=retrospective_df, val_df=None, test_df=monomer_replacement_df)
         model.train_test_model()
         if task_type == 'reg': model.y_pred = model.y_pred*100 #unscale regression targets
         test_df_copy[f'{task_type}_Predicted_Yield'] = list(model.y_pred)
     return test_df_copy
+
+generate_library_predictions('design')
