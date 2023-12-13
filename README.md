@@ -64,7 +64,7 @@ This subfolder contains implementations of the models described in the paper and
 3. `hyperparam_opt.py` performs hyperparameter optimization to generate the hyperparameters given in `dataset_files/retrospective/optimal_hyperparameters.csv`, which were used for the retrospective and post-2021 data modeling. Please see the SI for a detailed description of the hyperparameter optimization workflow.
 4. `gnn_cgr.py` is used to train and test a Chemprop (https://github.com/chemprop/chemprop) model, as described in the SI. The _chemprop_ package was directly used for this.
 
-All other files in this folder simply run the models across various data splits to generate the results shown in the paper. Each file is labeled by the section in the paper it belongs to (i.e. `retrospective_modeling.py` was used to generate the results shown in the "Retrospective Modeling" section of the paper)
+All other files in this folder simply run the models across various data splits to generate the results shown in the paper. Each file is labeled by the section in the paper it belongs to (i.e. `retrospective_modeling.py` was used to generate the results shown in the "Retrospective Modeling" section of the paper).
 
 ### utils
 
