@@ -75,5 +75,5 @@ def get_reactive_site_dft_data(df):
     return dft_descriptors
 
 def get_language_features(filepath):
-    features = np.load(filepath)
+    features = np.sum(np.load(filepath),axis=1)
     return features

@@ -1,5 +1,4 @@
 from models.main_models import *
-import pdb
 
 #generate model predictions used in the chemist survey
 def gen_survey_predictions(split_type):
