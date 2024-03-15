@@ -24,7 +24,7 @@ def train_test_chemprop(task_type,split_type,split_number):
     elif task_type == 'reg': metric = 'r2'
 
     data_dir = f'{main_datasets_dir}/retrospective/splits/{split_type}'
-    save_dir = f'{main_datasets_dir}/trained_gnn_models/{split_type}'
+    save_dir = f'{main_datasets_dir}/trained_gnn_models/{split_type}/{split_number}/{task_type}'
 
     #train
     train_arguments = [
@@ -60,7 +60,8 @@ def train_test_chemprop(task_type,split_type,split_number):
     test_df = pd.read_csv(f'{data_dir}/test_{split_number}.csv')
     y_test = np.array(test_df[f'{task_type}_Percent_Yield'].to_list())
     args = chemprop.args.PredictArgs().parse_args(test_arguments)
-    y_pred = np.array(chemprop.train.make_predictions(args=args))
-    y_pred = unscale(task_type, y_pred)
-    res = score_predictions(task_type, y_test, y_pred)
+    y_probs = np.array(chemprop.train.make_predictions(args=args))
+    y_pred = unscale(task_type, y_probs)
+    y_probs = np.hstack((y_probs,y_probs)) # just dummy stacking since score_predictions expects 2 columns
+    res = score_predictions(task_type, y_test, y_pred, y_probs)
     return res

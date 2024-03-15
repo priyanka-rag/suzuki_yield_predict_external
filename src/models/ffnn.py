@@ -62,6 +62,7 @@ class FFNN(torch.nn.Module):
                                          torch.nn.Linear(hidden_layer_sizes[1], hidden_layer_sizes[2]),
                                          torch.nn.ReLU(),
                                          torch.nn.Linear(hidden_layer_sizes[2], self.out_features))
+        self.sm = torch.nn.Softmax(dim=1)
 
         #peripherals
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -133,7 +134,8 @@ class FFNN(torch.nn.Module):
                 break
     
     def predict(self):
-        preds = []
+        preds, probs = [],[]
+        y_probs = None
         with torch.no_grad():
             self.model.eval()
             for batch in self.test_dataloader:
@@ -144,9 +146,11 @@ class FFNN(torch.nn.Module):
 
                 # evaluate your model here\
                 pred = self.model(X)
+                if self.task_type == 'bin': probs.append(self.sm(pred).tolist())
                 if self.task_type != 'reg': pred = torch.argmax(pred,dim=1)
                 preds.append(pred.tolist())
 
         #flatten outputs from the various batches
         y_pred = np.array([item for sublist in preds for item in sublist])
-        return y_pred
+        if self.task_type == 'bin': y_probs = np.array([item for sublist in probs for item in sublist])
+        return y_pred, y_probs

@@ -45,9 +45,9 @@ def test_on_post_2021_data(model_type, task_type, feature_type, split_preds):
         split_res = []
         split_ixs = split_post_2021_data(retrospective_df, post_2021_df)
         for ix in split_ixs:
-            y_test_sub, y_pred_sub = model.y_test[ix], model.y_pred[ix]
+            y_test_sub, y_pred_sub, y_probs_sub = model.y_test[ix], model.y_pred[ix], model.y_probs[ix]
             if task_type != 'reg': naive_score = get_naive_score(y_test_sub, task_type)
-            split_res.append(score_predictions(task_type, y_test_sub, y_pred_sub))
+            split_res.append(score_predictions(task_type, y_test_sub, y_pred_sub, y_probs_sub))
         return res, split_res
     else:
         return res

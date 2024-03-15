@@ -17,14 +17,14 @@ def get_params(model_type, split_type, task_type, feature_type):
    params = sub_df.iloc[0]['Params']
    return params
 
-def score_predictions(task_type,y_test,y_pred):
+def score_predictions(task_type,y_test,y_pred,y_probs):
    res = dict()
    if task_type == 'bin':
       res['Accuracy'] = accuracy_score(y_test, y_pred)
       res['Precision'] = precision_score(y_test, y_pred)
       res['Recall'] = recall_score(y_test, y_pred)
-      res['AUROC'] = roc_auc_score(y_test, y_pred)
-      res['AUPRC'] = average_precision_score(y_test, y_pred)
+      res['AUROC'] = roc_auc_score(y_test, y_probs[:,1])
+      res['AUPRC'] = average_precision_score(y_test, y_probs[:,1])
    elif task_type == 'mul':
       res['Accuracy'] = accuracy_score(y_test, y_pred)
    elif task_type == 'reg':
@@ -178,8 +178,10 @@ class Model_Trainer():
       else: self.model.fit(self.X_train,self.y_train)
    
    def model_predict(self):
-      if self.model_type == 'nn': self.y_pred = self.model.predict()
-      else: self.y_pred = self.model.predict(self.X_test)
+      if self.model_type == 'nn': self.y_pred, self.y_probs = self.model.predict()
+      else: 
+         if self.task_type == 'bin': self.y_probs = self.model.predict_proba(self.X_test)
+         self.y_pred = self.model.predict(self.X_test)
    
    def train_test_model(self):
       self.get_model_inputs()
@@ -187,4 +189,4 @@ class Model_Trainer():
       self.train_model()
       self.model_predict()
       if self.has_test_targets == True: 
-         self.res = score_predictions(self.task_type, self.y_test, self.y_pred)
+         self.res = score_predictions(self.task_type, self.y_test, self.y_pred, self.y_probs)
