@@ -178,6 +178,7 @@ class Model_Trainer():
       else: self.model.fit(self.X_train,self.y_train)
    
    def model_predict(self):
+      self.y_probs = None
       if self.model_type == 'nn': self.y_pred, self.y_probs = self.model.predict()
       else: 
          if self.task_type == 'bin': self.y_probs = self.model.predict_proba(self.X_test)
