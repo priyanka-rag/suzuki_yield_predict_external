@@ -30,10 +30,25 @@ class SuzukiDataset(Dataset):
 
     def __len__(self):
         return self.len
-    
-class FFNN(torch.nn.Module):
-    def __init__(self, task_type, params, random_seed, X_train, y_train, X_valid, y_valid, X_test, y_test):
+
+class FFNN_Model(torch.nn.Module):
+    def __init__(self, in_features, hidden_layer_sizes, out_features):
         super().__init__()
+        #model
+        self.model = torch.nn.Sequential(torch.nn.Linear(in_features, hidden_layer_sizes[0]),
+                                        torch.nn.ReLU(),
+                                        torch.nn.Linear(hidden_layer_sizes[0], hidden_layer_sizes[1]),
+                                        torch.nn.ReLU(),
+                                        torch.nn.Linear(hidden_layer_sizes[1], hidden_layer_sizes[2]),
+                                        torch.nn.ReLU(),
+                                        torch.nn.Linear(hidden_layer_sizes[2], out_features))
+    def forward(self, x):
+        x = self.model(x)
+        return x  
+
+class FFNN():
+    def __init__(self, task_type, params, random_seed, X_train, y_train, X_valid, y_valid, X_test, y_test):
+        #super().__init__()
         self.task_type = task_type
 
         #data
@@ -50,65 +65,50 @@ class FFNN(torch.nn.Module):
         self.test_dataloader = DataLoader(self.test_data, batch_size=self.batch_size)
 
         #hyperparameters
-        hidden_layer_sizes = params['hidden_layer_sizes']
+        self.hidden_layer_sizes = params['hidden_layer_sizes']
         self.learning_rate = params['learning_rate_init']
         torch.manual_seed(random_seed)
 
-        #model
-        self.model = torch.nn.Sequential(torch.nn.Linear(self.in_features, hidden_layer_sizes[0]),
-                                         torch.nn.ReLU(),
-                                         torch.nn.Linear(hidden_layer_sizes[0], hidden_layer_sizes[1]),
-                                         torch.nn.ReLU(),
-                                         torch.nn.Linear(hidden_layer_sizes[1], hidden_layer_sizes[2]),
-                                         torch.nn.ReLU(),
-                                         torch.nn.Linear(hidden_layer_sizes[2], self.out_features))
         self.sm = torch.nn.Softmax(dim=1)
 
         #peripherals
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model.to(self.device)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', verbose=True, patience=3, factor=0.5)
-        
-    def forward(self, x):
-        x = self.model(x)
-        return x       
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')       
    
-    def train(self):
+    def train(self, model, optimizer, dataloader):
         epoch_loss = []
-        self.model.train() #set model to training mode 
+        model.train() #set model to training mode 
         
-        for batch in self.train_dataloader:    
+        for batch in dataloader:    
             X, y = batch
             if self.task_type != 'reg': y = y.type(torch.LongTensor)
             X = X.to(self.device)
             y = y.to(self.device)
             
             #train model on each batch 
-            y_pred = self.model(X)
+            y_pred = model(X)
             
             if self.task_type == 'reg': loss = torch.nn.functional.mse_loss(y_pred.ravel(),y.ravel())
             else: loss = torch.nn.functional.cross_entropy(y_pred,y)
             epoch_loss.append(loss.item())
             
             # run backprop
-            self.optimizer.zero_grad()
+            optimizer.zero_grad()
             loss.backward()
-            self.optimizer.step()
+            optimizer.step()
         return np.array(epoch_loss).mean()
 
-    def validate(self):
+    def validate(self, model, dataloader):
         val_loss = []
-        self.model.eval() #set model to evaluation mode 
+        model.eval() #set model to evaluation mode 
         with torch.no_grad():    
-            for batch in self.val_dataloader:
+            for batch in dataloader:
                 X, y = batch
                 if self.task_type != 'reg': y = y.type(torch.LongTensor)
                 X = X.to(self.device)
                 y = y.to(self.device)
                 
                 #validate model on each batch 
-                y_pred = self.model(X)
+                y_pred = model(X)
 
                 if self.task_type == 'reg': loss = torch.nn.functional.mse_loss(y_pred.ravel(),y.ravel())
                 else: loss = torch.nn.functional.cross_entropy(y_pred,y)
@@ -116,13 +116,16 @@ class FFNN(torch.nn.Module):
         return np.array(val_loss).mean()
     
     def fit(self):
+        self.model = FFNN_Model(self.in_features,self.hidden_layer_sizes,self.out_features).to(self.device)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', verbose=True, patience=3, factor=0.5)
         self.early_stopper = EarlyStopper(patience=10, tol=1e-4)
         self.train_losses = []
         self.val_losses = []
 
         for epoch in range(200):
-            train_loss = self.train()
-            val_loss = self.validate()
+            train_loss = self.train(self.model, self.optimizer, self.train_dataloader)
+            val_loss = self.validate(self.model, self.val_dataloader)
             self.scheduler.step(val_loss)
 
             #record train and loss performance, check for early stopping
@@ -144,7 +147,7 @@ class FFNN(torch.nn.Module):
                 X = X.to(self.device)
                 y = y.to(self.device)
 
-                # evaluate your model here\
+                # evaluate model
                 pred = self.model(X)
                 if self.task_type == 'bin': probs.append(self.sm(pred).tolist())
                 if self.task_type != 'reg': pred = torch.argmax(pred,dim=1)

@@ -1,6 +1,6 @@
 # suzuki_yield_predict: Library-Based Suzuki Yield Prediction leveraging AbbVie's 15-year Historical Library Dataset
 
-This repository provides code for [insert paper name and link] and the associated Supplementary Information [insert link]
+This repository provides code for the paper "Incorporating Synthetic Accessibility in Drug Design: Predicting Reaction Yields of Suzuki Cross-Couplings by Leveraging AbbVie’s 15-Year Parallel Library Data Set" and the associated Supplementary Information, which can be found at https://pubs.acs.org/doi/10.1021/jacs.4c00098. 
 
 _Code Author: Priyanka Raghavan_
 
